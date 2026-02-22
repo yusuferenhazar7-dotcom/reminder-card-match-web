@@ -128,13 +128,11 @@ def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
         except Exception as e:
             last_error = e
             error_str = str(e).lower()
-            # If we hit a quota limit or any other generation error, try the next key
-            if "429" in error_str or "quota" in error_str or "exhausted" in error_str:
-                continue
-            else:
-                continue
-                
-    raise ValueError(f"Tüm API anahtarları denendi ve kotaları dolmuş veya hatalı. Son hata: {str(last_error)}")
+            continue
+            
+    # If all fail, display debug info about the keys loaded
+    masked_keys = [f"{k[:4]}...{k[-4:]}" if len(k) > 8 else "KEY_TOO_SHORT" for k in API_KEYS]
+    raise ValueError(f"Toplam {len(API_KEYS)} API anahtarı denendi. Yüklenen Anahtarlar: {masked_keys}. Son hata: {str(last_error)}")
 
 def extract_text_from_pdf(pdf_file) -> str:
     pdf_reader = PyPDF2.PdfReader(pdf_file)
