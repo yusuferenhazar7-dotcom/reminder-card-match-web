@@ -115,7 +115,7 @@ def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
     for key in API_KEYS:
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = model.generate_content(prompt)
             
             text = response.text.strip()
