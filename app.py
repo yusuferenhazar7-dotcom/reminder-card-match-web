@@ -4,6 +4,7 @@ import os
 import random
 from youtube_transcript_api import YouTubeTranscriptApi
 import sqlite3
+import PyPDF2
 
 try:
     from dotenv import load_dotenv
@@ -111,6 +112,14 @@ def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
         
     return json.loads(text)
 
+def extract_text_from_pdf(pdf_file) -> str:
+    pdf_reader = PyPDF2.PdfReader(pdf_file)
+    text = ""
+    for page in pdf_reader.pages:
+        extracted = page.extract_text()
+        if extracted:
+            text += extracted + "\n"
+    return text.strip()
 
 # --- Session State ---
 if 'game_active' not in st.session_state:
@@ -143,7 +152,7 @@ init_db()
 if not st.session_state.game_active:
     st.markdown("Öğrenmek istediğiniz bir konuyu, metni veya YouTube videosunu girin. Yapay zeka size anında eşleştirmeli bir oyun hazırlasın!")
     
-    tab1, tab2, tab3 = st.tabs(["📄 Metin Ekle", "🎥 YouTube Linki", "💾 Kayıtlı Kaynaklar"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📄 Metin Ekle", "🎥 YouTube Linki", "💾 Kayıtlı Kaynaklar", "📎 PDF Yükle"])
     
     with tab1:
         text_input = st.text_area("Metninizi buraya yapıştırın:", height=200)
@@ -241,6 +250,51 @@ if not st.session_state.game_active:
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Hata: {str(e)}")
+
+    with tab4:
+        uploaded_file = st.file_uploader("Bir PDF dosyası seçin", type="pdf")
+        col1, col2 = st.columns([3,1])
+        with col1:
+            pdf_title = st.text_input("Bu kaynağı kaydetmek için başlık (İsteğe bağlı)", key="pdf_title")
+        with col2:
+            st.write("")
+            st.write("")
+            save_pdf = st.checkbox("Kaydet", key="save_pdf_chk")
+            
+        if st.button("🚀 Quiz Oluştur (PDF)", use_container_width=True, type="primary"):
+            if uploaded_file is None:
+                st.error("Lütfen bir PDF dosyası yükleyin!")
+            else:
+                with st.spinner("PDF okunuyor ve sorular hazırlanıyor..."):
+                    try:
+                        pdf_text = extract_text_from_pdf(uploaded_file)
+                        if not pdf_text:
+                            st.error("PDF'den metin çıkarılamadı. Dosya taranmış veya resim formatında olabilir.")
+                            st.stop()
+                            
+                        # If the text is extremely long, Gemini might truncate or timeout.
+                        # It's better to limit the AI request text length. Let's cap at approx 40,000 characters.
+                        if len(pdf_text) > 40000:
+                            pdf_text = pdf_text[:40000]
+                            st.warning("⚠️ PDF çok uzundu, ilk kısmı baz alınarak quiz oluşturuldu.")
+                            
+                        if save_pdf and pdf_title:
+                            # We save up to the first 5000 chars to avoid huge DB bloating per user action, or fully since it's sqlite.
+                            save_source(pdf_title, pdf_text[:10000], "pdf")
+                            
+                        pairs = generate_quiz_pairs(pdf_text)
+                        
+                        st.session_state.current_source_content = pdf_text
+                        st.session_state.current_source_type = "pdf"
+                        
+                        st.session_state.pairs = pairs
+                        st.session_state.shuffled_concepts = random.sample([p["concept"] for p in pairs], len(pairs))
+                        st.session_state.shuffled_meanings = random.sample([p["meaning"] for p in pairs], len(pairs))
+                        
+                        st.session_state.game_active = True
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Hata oluştu: {str(e)}")
 
 # --- THE GAME SCREEN ---
 else:
