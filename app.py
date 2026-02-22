@@ -197,7 +197,7 @@ if not st.session_state.game_active:
             save_yt = st.checkbox("Kaydet", key="save_yt_chk")
             
         if st.button("🚀 Quiz Oluştur (YouTube)", use_container_width=True, type="primary"):
-            if not yt_input.strip() or "youtube.com" not in yt_input:
+            if not yt_input.strip() or ("youtube.com" not in yt_input and "youtu.be" not in yt_input):
                 st.error("Lütfen geçerli bir YouTube url'si girin!")
             else:
                 if save_yt and yt_title:
