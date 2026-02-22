@@ -89,7 +89,10 @@ def get_youtube_transcript(url: str) -> str:
         text = " ".join([snippet.text for snippet in transcript])
         return text
     except Exception as e:
-        raise ValueError(f"Altyazı alınamadı: {str(e)}")
+        error_msg = str(e)
+        if "YouTube is blocking requests from your IP" in error_msg or "blocked" in error_msg.lower():
+             raise ValueError("⚠️ YouTube, Streamlit Cloud sunucularının otomatik altyazı çekmesini (bot koruması nedeniyle) engelliyor. Lütfen videonun altyazısını YouTube'dan kopyalayıp '📄 Metin Ekle' sekmesinden yapıştırarak kullanın veya uygulamayı yerel bilgisayarınızda çalıştırın.")
+        raise ValueError(f"Altyazı alınamadı: {error_msg}")
 
 def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
     if not API_KEYS:
