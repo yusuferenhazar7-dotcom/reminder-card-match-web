@@ -70,9 +70,15 @@ def get_youtube_transcript(url: str) -> str:
     video_id = extract_youtube_video_id(url)
     if not video_id:
         raise ValueError("Geçersiz YouTube URL'si")
-    transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['tr', 'en'])
-    text = " ".join([t['text'] for t in transcript_list])
-    return text
+    
+    api = YouTubeTranscriptApi()
+    
+    try:
+        transcript = api.fetch(video_id, languages=['tr', 'en'])
+        text = " ".join([snippet.text for snippet in transcript])
+        return text
+    except Exception as e:
+        raise ValueError(f"Altyazı alınamadı: {str(e)}")
 
 def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
     if not API_KEY:
