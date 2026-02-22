@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.env
+
+# Database
+*.db
+sources.db
+
+# Streamlit config (if you prefer local settings kept private)
+.streamlit/
+
+# OS generated files
+.DS_Store
+Thumbs.db
