@@ -17,18 +17,28 @@ import google.generativeai as genai
 # --- Setup & Config ---
 st.set_page_config(page_title="Kavram Eşleştirme Oyunu", page_icon="🧠", layout="centered")
 
-# Initialize Gemini
-API_KEY = os.getenv("GEMINI_API_KEY")
-if not API_KEY:
-    # Try st.secrets for Streamlit Cloud
-    try:
-        API_KEY = st.secrets.get("GEMINI_API_KEY")
-    except Exception:
-        pass
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-else:
-    st.warning("⚠️ GEMINI_API_KEY bulunamadı. Lütfen .env dosyasına ekleyin.")
+# Initialize Gemini API Keys
+raw_keys = []
+# 1. From Environment Variables
+if os.getenv("GEMINI_API_KEYS"):
+    raw_keys.extend(os.getenv("GEMINI_API_KEYS").split(","))
+if os.getenv("GEMINI_API_KEY"):
+    raw_keys.append(os.getenv("GEMINI_API_KEY"))
+
+# 2. From Streamlit Secrets
+try:
+    if "GEMINI_API_KEYS" in st.secrets:
+        raw_keys.extend(st.secrets["GEMINI_API_KEYS"].split(","))
+    if "GEMINI_API_KEY" in st.secrets:
+        raw_keys.append(st.secrets["GEMINI_API_KEY"])
+except Exception:
+    pass
+
+# Remove duplicates and empty strings while preserving order
+API_KEYS = list(dict.fromkeys([k.strip() for k in raw_keys if k.strip()]))
+
+if not API_KEYS:
+    st.warning("⚠️ Hiçbir GEMINI_API_KEY bulunamadı. Lütfen .env dosyasına veya Secrets içerisine ekleyin.")
 
 # --- Database Layout ---
 DB_NAME = "sources.db"
@@ -82,7 +92,7 @@ def get_youtube_transcript(url: str) -> str:
         raise ValueError(f"Altyazı alınamadı: {str(e)}")
 
 def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
-    if not API_KEY:
+    if not API_KEYS:
         raise ValueError("API Key eksik!")
         
     prompt = f"""
@@ -101,16 +111,30 @@ def generate_quiz_pairs(input_text: str, count: int = 5) -> list:
     ]
     """
     
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content(prompt)
-    
-    text = response.text.strip()
-    if text.startswith("```json"):
-        text = text[7:]
-    if text.endswith("```"):
-        text = text[:-3]
-        
-    return json.loads(text)
+    last_error = None
+    for key in API_KEYS:
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
+            
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:]
+            if text.endswith("```"):
+                text = text[:-3]
+                
+            return json.loads(text)
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+            # If we hit a quota limit or any other generation error, try the next key
+            if "429" in error_str or "quota" in error_str or "exhausted" in error_str:
+                continue
+            else:
+                continue
+                
+    raise ValueError(f"Tüm API anahtarları denendi ve kotaları dolmuş veya hatalı. Son hata: {str(last_error)}")
 
 def extract_text_from_pdf(pdf_file) -> str:
     pdf_reader = PyPDF2.PdfReader(pdf_file)
@@ -197,7 +221,7 @@ if not st.session_state.game_active:
             save_yt = st.checkbox("Kaydet", key="save_yt_chk")
             
         if st.button("🚀 Quiz Oluştur (YouTube)", use_container_width=True, type="primary"):
-            if not yt_input.strip() or ("youtube.com" not in yt_input and "youtu.be" not in yt_input):
+            if not yt_input.strip() or "youtube.com" not in yt_input:
                 st.error("Lütfen geçerli bir YouTube url'si girin!")
             else:
                 if save_yt and yt_title:
