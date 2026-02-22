@@ -2,17 +2,28 @@ import streamlit as st
 import json
 import os
 import random
-from dotenv import load_dotenv
-import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
 import sqlite3
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+import google.generativeai as genai
+
 # --- Setup & Config ---
-load_dotenv()
 st.set_page_config(page_title="Kavram Eşleştirme Oyunu", page_icon="🧠", layout="centered")
 
 # Initialize Gemini
 API_KEY = os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    # Try st.secrets for Streamlit Cloud
+    try:
+        API_KEY = st.secrets.get("GEMINI_API_KEY")
+    except Exception:
+        pass
 if API_KEY:
     genai.configure(api_key=API_KEY)
 else:
